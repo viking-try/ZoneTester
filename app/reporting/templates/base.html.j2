@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #1a2230; background: #f4f6f8; margin: 0; padding: 24px; }
+  .container { max-width: 680px; margin: 0 auto; background: #ffffff; border: 1px solid #d8dee5; border-radius: 8px; padding: 24px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .subtitle { color: #5b6675; font-size: 13px; margin-bottom: 20px; }
+  h2 { font-size: 14px; margin: 20px 0 8px; border-bottom: 1px solid #d8dee5; padding-bottom: 4px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin-bottom: 8px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #eef1f4; }
+  th { color: #5b6675; font-weight: 600; }
+  .empty { color: #8b96a3; font-size: 12.5px; font-style: italic; }
+  .footer { margin-top: 24px; color: #8b96a3; font-size: 11.5px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>Zoneguard report: {{ schedule.name }}</h1>
+    <div class="subtitle">
+      Zone: {{ schedule.zone or "All zones" }} &middot;
+      {{ digest.events|length }} change{{ "" if digest.events|length == 1 else "s" }} since last report
+    </div>
+
+    {% for event_type, label in event_type_labels.items() %}
+      {% set rows = digest.sections.get(event_type, []) %}
+      {% if digest.sections.get(event_type) is not none %}
+        <h2>{{ label }}</h2>
+        {% if rows %}
+          <table>
+            <thead><tr><th>Zone</th><th>Detail</th><th>When</th></tr></thead>
+            <tbody>
+              {% for e in rows %}
+              <tr>
+                <td>{{ e.zone or "—" }}</td>
+                <td>{{ e.detail }}</td>
+                <td>{{ e.created_at }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">No changes in this category.</div>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+
+    <div class="footer">Sent by Zoneguard. This is an automated report — do not reply.</div>
+  </div>
+</body>
+</html>

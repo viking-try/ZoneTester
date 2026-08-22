@@ -1,0 +1,4 @@
+Name,Type,Value,TTL
+bare-example.net,A,198.51.100.10,300
+www.bare-example.net,CNAME,bare-example.net,300
+ns1.bare-example.net,NS,ns-123.awsdns-45.com,172800

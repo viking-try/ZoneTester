@@ -1,0 +1,93 @@
+x-app-image: &app-image
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: zoneguard:latest
+  environment: &app-env
+    DATABASE_URL: postgresql://zoneguard:${POSTGRES_PASSWORD:-zoneguard_dev_password}@postgres:5432/zoneguard
+    CELERY_BROKER_URL: redis://redis:6379/0
+    CELERY_RESULT_BACKEND: redis://redis:6379/1
+    REDIS_URL: redis://redis:6379/2
+    APP_SECRET_KEY: ${APP_SECRET_KEY:-dev-only-change-me-in-prod}
+    ENV: ${ENV:-development}
+    SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    OIDC_ISSUER: ${OIDC_ISSUER:-}
+    OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+    OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+    SECRETS_BACKEND: ${SECRETS_BACKEND:-env}
+    AWS_SECRETS_BUNDLE_ID: ${AWS_SECRETS_BUNDLE_ID:-}
+    ALLOW_INSECURE_TLS_FALLBACK: ${ALLOW_INSECURE_TLS_FALLBACK:-false}
+    ALLOW_RFC1918_SCAN_TARGETS: ${ALLOW_RFC1918_SCAN_TARGETS:-false}
+    SMTP_HOST: ${SMTP_HOST:-}
+    SMTP_PORT: ${SMTP_PORT:-587}
+    SMTP_FROM: ${SMTP_FROM:-zoneguard@example.com}
+    JIRA_BASE_URL: ${JIRA_BASE_URL:-}
+    SERVICENOW_BASE_URL: ${SERVICENOW_BASE_URL:-}
+    DOH_URL: ${DOH_URL:-https://cloudflare-dns.com/dns-query}
+    REQUESTS_CA_BUNDLE: ${REQUESTS_CA_BUNDLE:-}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks: [zoneguard-net]
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: zoneguard
+      POSTGRES_USER: zoneguard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zoneguard_dev_password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zoneguard -d zoneguard"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [zoneguard-net]
+    restart: unless-stopped
+    # No host port published — only reachable from the zoneguard-net network.
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [zoneguard-net]
+    restart: unless-stopped
+    # No host port published.
+
+  api:
+    <<: *app-image
+    environment:
+      <<: *app-env
+      ROLE: api
+    ports:
+      - "8000:8000"
+
+  worker:
+    <<: *app-image
+    environment:
+      <<: *app-env
+      ROLE: worker
+      CELERY_CONCURRENCY: ${CELERY_CONCURRENCY:-4}
+
+  beat:
+    <<: *app-image
+    environment:
+      <<: *app-env
+      ROLE: beat
+    deploy:
+      replicas: 1
+
+networks:
+  zoneguard-net:
+    driver: bridge
+
+volumes:
+  pgdata:

@@ -1,0 +1,149 @@
+:root {
+  --bg: #f4f6f8;
+  --bg-elevated: #ffffff;
+  --bg-inset: #eef1f4;
+  --border: #d8dee5;
+  --text: #1a2230;
+  --text-muted: #5b6675;
+  --text-faint: #8b96a3;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-bg: #e8f0fe;
+  --danger: #dc2626;
+  --danger-bg: #fdecea;
+  --warning: #b45309;
+  --warning-bg: #fef3e0;
+  --success: #15803d;
+  --success-bg: #e7f6ec;
+  --info: #6d28d9;
+  --info-bg: #f1e9fd;
+  --radius: 6px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1420;
+    --bg-elevated: #171d2b;
+    --bg-inset: #1c2333;
+    --border: #2c3547;
+    --text: #e6eaf0;
+    --text-muted: #9aa5b6;
+    --text-faint: #6b7688;
+    --accent: #5b8def;
+    --accent-hover: #7ba1f2;
+    --accent-bg: #1a2942;
+    --danger: #f0605a;
+    --danger-bg: #3a1a1c;
+    --warning: #e0a34c;
+    --warning-bg: #3a2c14;
+    --success: #4ade80;
+    --success-bg: #14301e;
+    --info: #b794f6;
+    --info-bg: #2a1f42;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, .mono { font-family: var(--mono); }
+
+h1, h2, h3 { margin: 0 0 0.5em; font-weight: 600; }
+h1 { font-size: 20px; }
+h2 { font-size: 16px; }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+
+#app-shell { display: flex; min-height: 100vh; }
+
+#sidebar {
+  width: 208px;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  padding: 16px 10px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+#sidebar .brand { font-weight: 700; font-size: 16px; padding: 4px 10px 16px; }
+#sidebar .brand .dot { color: var(--accent); }
+#sidebar nav a {
+  display: block;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 13.5px;
+  margin-bottom: 2px;
+}
+#sidebar nav a:hover { background: var(--bg-inset); text-decoration: none; color: var(--text); }
+#sidebar nav a.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+#sidebar .nav-section { margin-top: 14px; margin-bottom: 4px; padding: 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); }
+
+#main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+#topbar .spacer { flex: 1; }
+
+#content { padding: 20px; flex: 1; }
+
+select, input[type="text"], input[type="search"], input[type="number"], input[type="password"], input[type="email"] {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 6px 9px;
+  font-size: 13px;
+  font-family: inherit;
+}
+select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+button {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+}
+button:hover { background: var(--bg-inset); }
+button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+button.primary:hover { background: var(--accent-hover); }
+button.danger { color: var(--danger); border-color: var(--danger); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.muted { color: var(--text-muted); }
+.faint { color: var(--text-faint); font-size: 12px; }

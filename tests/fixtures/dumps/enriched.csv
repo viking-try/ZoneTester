@@ -1,0 +1,9 @@
+Name,Type,Value,TTL,Zone,Comment
+example.com,A,93.184.216.34,300,example.com,apex
+www.example.com,CNAME,d123456abcdef8.cloudfront.net,300,example.com,cdn fronted
+api.example.com,A,203.0.113.10,300,example.com,internal api
+_acme-challenge.example.com,TXT,"abc123def456",300,example.com,acme dcv
+mail.example.com,MX,10 mail.example.com,3600,example.com,mail exchanger
+staging.other-domain.io,A,203.0.113.55,300,other-domain.io,staging env
+cert-validate.other-domain.io,CNAME,xyz.acm-validations.aws,300,other-domain.io,acm dcv
+dangling.other-domain.io,CNAME,dead-bucket.s3-website-us-east-1.amazonaws.com,300,other-domain.io,orphaned cname
