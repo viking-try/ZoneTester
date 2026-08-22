@@ -1,6 +1,16 @@
 import { apiGet } from "../api.js";
 import { showToast } from "../components/toast.js";
-import { getState, onStateChange } from "../state.js";
+import { getState, onStateChange, setZone } from "../state.js";
+
+const ISSUE_META = {
+  dangling: { label: "Dangling DNS assets / cleanup candidates", route: "#/cleanup" },
+  down: { label: "Down / unreachable scan targets", route: "#/records?state=down" },
+  weak_cipher: { label: "Weak or deprecated cipher suites", route: "#/records?weak_cipher=true" },
+  expired_or_bad_cert: { label: "Expired or invalid certificates", route: "#/records?grade=F" },
+  no_pqc: { label: "No Post-Quantum (PQC) support", route: "#/records?pqc=false" },
+  missing_hsts: { label: "Missing Strict-Transport-Security (HSTS)", route: "#/records?hsts_missing=true" },
+  legacy_tls: { label: "Legacy protocols (TLS 1.0, 1.1, SSLv3)", route: "#/records?protocol=TLSv1" },
+};
 
 export async function render(container) {
   container.innerHTML = `
@@ -33,22 +43,59 @@ export async function render(container) {
     if (groupBy === "issue") {
       el.innerHTML = `
         <div class="table-wrap"><table class="data-table">
-          <thead><tr><th>Issue</th><th>Count</th></tr></thead>
-          <tbody>${rows
-            .map((r) => `<tr><td>${escapeHtml(r.issue)}</td><td>${r.count}</td></tr>`)
-            .join("")}</tbody>
+          <thead><tr><th>Issue</th><th style="width:120px;text-align:right;">Count</th><th style="width:100px;">Action</th></tr></thead>
+          <tbody></tbody>
         </table></div>`;
+      const tbody = el.querySelector("tbody");
+      for (const r of rows) {
+        const meta = ISSUE_META[r.issue] || { label: r.issue, route: "#/records" };
+        const tr = document.createElement("tr");
+        tr.style.cursor = "pointer";
+        tr.title = `Drill down into ${meta.label}`;
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(meta.label)}</strong> <span class="mono faint">(${escapeHtml(r.issue)})</span></td>
+          <td style="text-align:right;font-weight:700;">${r.count}</td>
+          <td><span class="clickable-link">View records →</span></td>
+        `;
+        tr.onclick = () => {
+          window.location.hash = meta.route;
+        };
+        tbody.appendChild(tr);
+      }
     } else {
       el.innerHTML = `
         <div class="table-wrap"><table class="data-table">
-          <thead><tr><th>Zone</th><th>Total</th><th>Cleanup</th><th>Down</th><th>Weak cipher</th><th>F/T grade</th></tr></thead>
-          <tbody>${rows
-            .map(
-              (r) =>
-                `<tr><td>${escapeHtml(r.hosted_zone)}</td><td>${r.total}</td><td>${r.cleanup_count}</td><td>${r.down_count}</td><td>${r.weak_cipher_count}</td><td>${r.f_or_t_count}</td></tr>`
-            )
-            .join("")}</tbody>
+          <thead><tr>
+            <th>Zone</th>
+            <th style="text-align:right;">Total</th>
+            <th style="text-align:right;">Cleanup</th>
+            <th style="text-align:right;">Down</th>
+            <th style="text-align:right;">Weak cipher</th>
+            <th style="text-align:right;">F / T grade</th>
+          </tr></thead>
+          <tbody></tbody>
         </table></div>`;
+      const tbody = el.querySelector("tbody");
+      for (const r of rows) {
+        const z = r.hosted_zone || "";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><span class="clickable-link"><strong>${escapeHtml(z || "All")}</strong></span></td>
+          <td style="text-align:right;"><a class="clickable-link" href="#/records?search=${encodeURIComponent(z)}">${r.total}</a></td>
+          <td style="text-align:right;"><a class="clickable-link" href="#/cleanup?action=">${r.cleanup_count > 0 ? `<strong>${r.cleanup_count}</strong>` : "0"}</a></td>
+          <td style="text-align:right;"><a class="clickable-link" href="#/records?state=down">${r.down_count > 0 ? `<span class="state-down"><strong>${r.down_count}</strong></span>` : "0"}</a></td>
+          <td style="text-align:right;"><a class="clickable-link" href="#/records?weak_cipher=true">${r.weak_cipher_count > 0 ? `<span class="pill off">${r.weak_cipher_count}</span>` : "0"}</a></td>
+          <td style="text-align:right;"><a class="clickable-link" href="#/records?grade=F">${r.f_or_t_count > 0 ? `<span class="badge grade-F">${r.f_or_t_count}</span>` : "0"}</a></td>
+        `;
+        tr.querySelector("td span.clickable-link").onclick = () => {
+          if (z) {
+            setZone(z);
+            showToast(`Filtered to zone ${z}`, "success");
+            window.location.hash = "#/records";
+          }
+        };
+        tbody.appendChild(tr);
+      }
     }
   }
 
@@ -63,3 +110,4 @@ export async function render(container) {
   await load();
   return () => unsub();
 }
+

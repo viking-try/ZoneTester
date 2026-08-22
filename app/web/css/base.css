@@ -47,6 +47,11 @@
   }
 }
 
+:root {
+  --sidebar-width: 216px;
+  --sidebar-collapsed-width: 60px;
+}
+
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
@@ -66,32 +71,147 @@ h1 { font-size: 20px; }
 h2 { font-size: 16px; }
 h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
 
-#app-shell { display: flex; min-height: 100vh; }
+#app-shell {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
 
 #sidebar {
-  width: 208px;
+  width: var(--sidebar-width);
   flex-shrink: 0;
   background: var(--bg-elevated);
   border-right: 1px solid var(--border);
-  padding: 16px 10px;
+  padding: 14px 8px;
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
 }
-#sidebar .brand { font-weight: 700; font-size: 16px; padding: 4px 10px 16px; }
+
+#sidebar .brand {
+  font-weight: 700;
+  font-size: 16px;
+  padding: 4px 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  white-space: nowrap;
+  overflow: hidden;
+}
+#sidebar .brand .brand-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 #sidebar .brand .dot { color: var(--accent); }
+
+#sidebar nav {
+  flex: 1;
+}
+
 #sidebar nav a {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 7px 10px;
   border-radius: var(--radius);
   color: var(--text-muted);
-  font-size: 13.5px;
+  font-size: 13px;
   margin-bottom: 2px;
+  white-space: nowrap;
+  position: relative;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+#sidebar nav a .nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#sidebar nav a .nav-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+#sidebar nav a .nav-label {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #sidebar nav a:hover { background: var(--bg-inset); text-decoration: none; color: var(--text); }
 #sidebar nav a.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
-#sidebar .nav-section { margin-top: 14px; margin-bottom: 4px; padding: 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); }
+#sidebar .nav-section {
+  margin-top: 14px;
+  margin-bottom: 4px;
+  padding: 0 10px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.18s ease;
+}
+
+/* Collapsed sidebar state */
+#app-shell.sidebar-collapsed #sidebar {
+  width: var(--sidebar-collapsed-width);
+  padding: 14px 6px;
+}
+#app-shell.sidebar-collapsed #sidebar .brand-full {
+  display: none;
+}
+#app-shell.sidebar-collapsed #sidebar .brand-mini {
+  display: inline-block;
+  font-weight: 800;
+  color: var(--accent);
+  margin: 0 auto;
+  font-size: 15px;
+}
+#app-shell:not(.sidebar-collapsed) #sidebar .brand-mini {
+  display: none;
+}
+#app-shell.sidebar-collapsed #sidebar .nav-section {
+  opacity: 0;
+  height: 0;
+  margin: 6px 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  font-size: 0;
+}
+#app-shell.sidebar-collapsed #sidebar nav a {
+  padding: 8px;
+  justify-content: center;
+}
+#app-shell.sidebar-collapsed #sidebar nav a .nav-label {
+  display: none;
+}
+#app-shell.sidebar-collapsed #sidebar nav a:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--text);
+  color: var(--bg);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: var(--shadow);
+}
 
 #main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
@@ -99,7 +219,7 @@ h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: 
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px;
+  padding: 8px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elevated);
   position: sticky;
@@ -107,6 +227,29 @@ h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: 
   z-index: 5;
 }
 #topbar .spacer { flex: 1; }
+
+.sidebar-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.sidebar-toggle-btn:hover {
+  background: var(--bg-inset);
+  color: var(--text);
+}
+.sidebar-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
 
 #content { padding: 20px; flex: 1; }
 
@@ -130,11 +273,17 @@ button {
   background: var(--bg-elevated);
   color: var(--text);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 button:hover { background: var(--bg-inset); }
 button.primary { background: var(--accent); border-color: var(--accent); color: white; }
 button.primary:hover { background: var(--accent-hover); }
 button.danger { color: var(--danger); border-color: var(--danger); }
+button.danger:hover { background: var(--danger-bg); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .card {
@@ -147,3 +296,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .muted { color: var(--text-muted); }
 .faint { color: var(--text-faint); font-size: 12px; }
+
+/* Print stylesheet for clean PDF export */
+@media print {
+  body { background: #fff !important; color: #000 !important; font-size: 12pt; }
+  #sidebar, #topbar, .table-toolbar, .filter-bar, .no-print, button, .modal-backdrop { display: none !important; }
+  #main, #content { padding: 0 !important; margin: 0 !important; width: 100% !important; }
+  .card, .table-wrap { border: 1px solid #ccc !important; box-shadow: none !important; break-inside: avoid; }
+  a { text-decoration: none !important; color: #000 !important; }
+}

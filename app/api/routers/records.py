@@ -46,6 +46,9 @@ def _build_filters(q: dict) -> tuple[list[str], dict]:
     if q.get("search"):
         where.append("(name ILIKE %(search)s OR value ILIKE %(search)s)")
         params["search"] = f"%{q['search']}%"
+    if q.get("domain_id"):
+        where.append("domain_id = %(domain_id)s")
+        params["domain_id"] = int(q["domain_id"])
     if q.get("zone"):
         where.append("hosted_zone = %(zone)s")
         params["zone"] = q["zone"]

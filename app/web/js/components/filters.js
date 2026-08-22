@@ -1,10 +1,10 @@
 /* Builds a filter bar from a declarative field list and calls onChange(values) whenever any
 field changes (debounced for text inputs). Shared by records/domains/cleanup/jobs/audit
 pages so filter UI stays consistent. */
-export function buildFilterBar(container, fields, onChange) {
+export function buildFilterBar(container, fields, onChange, initialValues = {}) {
   container.innerHTML = "";
   container.className = "filter-bar";
-  const values = {};
+  const values = { ...initialValues };
 
   for (const field of fields) {
     const group = document.createElement("div");
@@ -15,21 +15,34 @@ export function buildFilterBar(container, fields, onChange) {
     group.appendChild(label);
 
     let input;
+    const initialVal = initialValues[field.key];
     if (field.type === "select") {
       input = document.createElement("select");
       for (const opt of field.options) {
         const o = document.createElement("option");
         o.value = opt.value;
         o.textContent = opt.label;
+        if (initialVal !== undefined && String(opt.value) === String(initialVal)) {
+          o.selected = true;
+          values[field.key] = opt.value;
+        }
         input.appendChild(o);
       }
     } else if (field.type === "checkbox") {
       input = document.createElement("input");
       input.type = "checkbox";
+      if (initialVal === "true" || initialVal === true) {
+        input.checked = true;
+        values[field.key] = "true";
+      }
     } else {
       input = document.createElement("input");
       input.type = field.type || "text";
       if (field.placeholder) input.placeholder = field.placeholder;
+      if (initialVal) {
+        input.value = initialVal;
+        values[field.key] = initialVal;
+      }
     }
     input.id = `flt-${field.key}`;
 
@@ -52,7 +65,7 @@ export function buildFilterBar(container, fields, onChange) {
       const el = container.querySelector(`#flt-${field.key}`);
       if (!el) continue;
       if (field.type === "checkbox") el.checked = false;
-      else el.value = field.type === "select" ? field.options[0].value : "";
+      else el.value = field.type === "select" ? (field.options[0]?.value || "") : "";
       values[field.key] = "";
     }
     onChange({ ...values });
@@ -61,6 +74,7 @@ export function buildFilterBar(container, fields, onChange) {
 
   return values;
 }
+
 
 function debounce(fn, ms) {
   let timer;

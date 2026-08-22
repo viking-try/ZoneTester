@@ -45,3 +45,13 @@ export async function apiPut(path, body) {
   if (!resp.ok) throw await toApiError(resp);
   return resp.json();
 }
+
+export async function apiDelete(path) {
+  const resp = await fetch(BASE + path, {
+    method: "DELETE",
+    credentials: "same-origin",
+  });
+  if (!resp.ok) throw await toApiError(resp);
+  return resp.json();
+}
+

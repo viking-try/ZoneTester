@@ -4,12 +4,30 @@ import { buildFilterBar } from "../components/filters.js";
 import { showModal } from "../components/modal.js";
 import { showToast } from "../components/toast.js";
 import { gradeBadge, statePill, boolPill, formatDate } from "../format.js";
-import { getState, onStateChange } from "../state.js";
+import { getState, onStateChange, setZone } from "../state.js";
 
 const COLUMNS = [
   { key: "name", label: "Name", sortable: true, className: "mono" },
   { key: "rtype", label: "Type", sortable: true },
-  { key: "hosted_zone", label: "Zone", sortable: true },
+  {
+    key: "hosted_zone",
+    label: "Zone",
+    sortable: true,
+    render: (r) => {
+      const span = document.createElement("span");
+      span.className = "pill clickable";
+      span.textContent = r.hosted_zone || "—";
+      span.title = `Filter by zone ${r.hosted_zone}`;
+      span.onclick = (e) => {
+        e.stopPropagation();
+        if (r.hosted_zone) {
+          setZone(r.hosted_zone);
+          showToast(`Filtered to zone ${r.hosted_zone}`, "success");
+        }
+      };
+      return span;
+    },
+  },
   { key: "state", label: "State", sortable: true, render: (r) => statePill(r.state) },
   { key: "protocol", label: "Protocol", sortable: false },
   { key: "grade", label: "Grade", sortable: true, render: (r) => gradeBadge(r.grade) },
@@ -24,73 +42,132 @@ const COLUMNS = [
   { key: "last_scanned", label: "Last scanned", sortable: true, render: (r) => formatDate(r.last_scanned) },
 ];
 
-export async function render(container) {
+export async function render(container, queryParams = new URLSearchParams()) {
   container.innerHTML = `
     <h1>Records</h1>
+    <div id="quick-presets" class="quick-filters"></div>
     <div id="filter-bar"></div>
     <div id="table"></div>
   `;
 
-  let filters = { zone: getState().zone };
+  const initialFilters = {
+    search: queryParams.get("search") || "",
+    grade: queryParams.get("grade") || "",
+    state: queryParams.get("state") || "",
+    protocol: queryParams.get("protocol") || "",
+    pqc: queryParams.get("pqc") || "",
+    weak_cipher: queryParams.get("weak_cipher") || "",
+    hsts_missing: queryParams.get("hsts_missing") || "",
+    cleanup: queryParams.get("cleanup") || "",
+  };
+
+  let filters = { ...initialFilters, zone: getState().zone };
 
   const table = new PaginatedTable(document.getElementById("table"), {
     columns: COLUMNS,
     defaultSort: { by: "name", dir: "asc" },
     fetchPage: async (page) => apiGet("/records", { ...filters, ...page }),
-    onRowClick: (row) => openDetail(row.id, () => table.refresh({ quiet: true })),
+    onRowClick: (row) => openRecordDetail(row.id, () => table.refresh({ quiet: true })),
   });
 
-  buildFilterBar(
-    document.getElementById("filter-bar"),
-    [
-      { key: "search", label: "Search", type: "search", placeholder: "name or value…" },
-      {
-        key: "grade",
-        label: "Grade",
-        type: "select",
-        options: [
-          { value: "", label: "Any grade" },
-          ...["A+", "A", "B", "C", "F", "T"].map((g) => ({ value: g, label: g })),
-        ],
-      },
-      {
-        key: "state",
-        label: "State",
-        type: "select",
-        options: [
-          { value: "", label: "Any state" },
-          ...["up", "down", "validation", "unscanned", "error"].map((s) => ({ value: s, label: s })),
-        ],
-      },
-      {
-        key: "protocol",
-        label: "Protocol",
-        type: "select",
-        options: [
-          { value: "", label: "Any protocol" },
-          ...["TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1", "SSLv3"].map((p) => ({ value: p, label: p })),
-        ],
-      },
-      {
-        key: "pqc",
-        label: "PQC",
-        type: "select",
-        options: [
-          { value: "", label: "Any" },
-          { value: "true", label: "PQC-ready" },
-          { value: "false", label: "Not PQC" },
-          { value: "unknown", label: "Unknown" },
-        ],
-      },
-      { key: "weak_cipher", label: "Weak cipher only", type: "checkbox" },
-      { key: "hsts_missing", label: "Missing HSTS", type: "checkbox" },
-      { key: "cleanup", label: "Cleanup only", type: "checkbox" },
-    ],
-    (values) => {
-      filters = { ...values, zone: getState().zone };
-      table.refresh({ preservePage: false });
+  // Render quick preset filter chips
+  const presetsEl = document.getElementById("quick-presets");
+  const PRESETS = [
+    { label: "All Records", match: (f) => !f.grade && !f.state && !f.weak_cipher && !f.hsts_missing && !f.pqc && !f.cleanup, apply: {} },
+    { label: "Critical (F/T)", match: (f) => f.grade === "F" || f.grade === "T", apply: { grade: "F" } },
+    { label: "Down Hosts", match: (f) => f.state === "down", apply: { state: "down" } },
+    { label: "Weak Ciphers", match: (f) => f.weak_cipher === "true", apply: { weak_cipher: "true" } },
+    { label: "Missing HSTS", match: (f) => f.hsts_missing === "true", apply: { hsts_missing: "true" } },
+    { label: "PQC Ready", match: (f) => f.pqc === "true", apply: { pqc: "true" } },
+    { label: "Cleanup Candidates", match: (f) => f.cleanup === "true", apply: { cleanup: "true" } },
+  ];
+
+  function renderPresets() {
+    presetsEl.innerHTML = "";
+    for (const p of PRESETS) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = `quick-chip ${p.match(filters) ? "active" : ""}`;
+      chip.textContent = p.label;
+      chip.onclick = () => {
+        filters = {
+          search: filters.search,
+          grade: "",
+          state: "",
+          protocol: "",
+          pqc: "",
+          weak_cipher: "",
+          hsts_missing: "",
+          cleanup: "",
+          ...p.apply,
+          zone: getState().zone,
+        };
+        rebuildFilterBar();
+        renderPresets();
+        table.refresh({ preservePage: false });
+      };
+      presetsEl.appendChild(chip);
     }
-  );
+  }
+
+  function rebuildFilterBar() {
+    buildFilterBar(
+      document.getElementById("filter-bar"),
+      [
+        { key: "search", label: "Search", type: "search", placeholder: "name or value…" },
+        {
+          key: "grade",
+          label: "Grade",
+          type: "select",
+          options: [
+            { value: "", label: "Any grade" },
+            ...["A+", "A", "B", "C", "F", "T"].map((g) => ({ value: g, label: g })),
+          ],
+        },
+        {
+          key: "state",
+          label: "State",
+          type: "select",
+          options: [
+            { value: "", label: "Any state" },
+            ...["up", "down", "validation", "unscanned", "error"].map((s) => ({ value: s, label: s })),
+          ],
+        },
+        {
+          key: "protocol",
+          label: "Protocol",
+          type: "select",
+          options: [
+            { value: "", label: "Any protocol" },
+            ...["TLSv1.3", "TLSv1.2", "TLSv1.1", "TLSv1", "SSLv3"].map((p) => ({ value: p, label: p })),
+          ],
+        },
+        {
+          key: "pqc",
+          label: "PQC",
+          type: "select",
+          options: [
+            { value: "", label: "Any" },
+            { value: "true", label: "PQC-ready" },
+            { value: "false", label: "Not PQC" },
+            { value: "unknown", label: "Unknown" },
+          ],
+        },
+        { key: "weak_cipher", label: "Weak cipher only", type: "checkbox" },
+        { key: "hsts_missing", label: "Missing HSTS", type: "checkbox" },
+        { key: "cleanup", label: "Cleanup only", type: "checkbox" },
+      ],
+      (values) => {
+        filters = { ...values, zone: getState().zone };
+        renderPresets();
+        table.refresh({ preservePage: false });
+      },
+      filters
+    );
+  }
+
+  rebuildFilterBar();
+  renderPresets();
 
   const unsub = onStateChange((s) => {
     filters = { ...filters, zone: s.zone };
@@ -101,7 +178,7 @@ export async function render(container) {
   return () => unsub();
 }
 
-async function openDetail(recordId, onChanged) {
+export async function openRecordDetail(recordId, onChanged) {
   const body = document.createElement("div");
   body.textContent = "Loading…";
   const { close } = showModal("Record detail", body);
@@ -113,32 +190,47 @@ async function openDetail(recordId, onChanged) {
     const dl = document.createElement("dl");
     dl.className = "kv-grid";
     const rows = [
-      ["Name", r.name],
-      ["Type / Zone", `${r.rtype} · ${r.hosted_zone || "—"}`],
-      ["Value", r.value],
-      ["State", r.state],
-      ["Down reason", r.down_reason || "—"],
-      ["Protocol", r.protocol || "—"],
-      ["Negotiated cipher", r.negotiated_cipher || "—"],
-      ["Forward secrecy", r.forward_secrecy === null ? "—" : String(r.forward_secrecy)],
-      ["PQC supported", r.pqc_supported === null ? "unknown" : String(r.pqc_supported)],
-      ["Weak cipher present", String(!!r.weak_cipher_present)],
-      ["TLS grade", r.tls_grade || "—"],
-      ["Header grade", r.header_grade ?? "—"],
-      ["Overall grade", r.grade || "—"],
-      ["Cert expires", formatDate(r.cert_expires_at)],
-      ["Server header", r.server_header || "—"],
-      ["X-Powered-By", r.x_powered_by || "—"],
-      ["Cleanup action", r.cleanup_action || "keep"],
-      ["Cleanup confidence", r.cleanup_confidence ?? 0],
-      ["Last scanned", formatDate(r.last_scanned)],
-      ["First seen", formatDate(r.first_seen)],
+      ["Name", r.name, true],
+      ["Type / Zone", `${r.rtype} · ${r.hosted_zone || "—"}`, false],
+      ["Value", r.value, true],
+      ["State", r.state, false],
+      ["Down reason", r.down_reason || "—", false],
+      ["Protocol", r.protocol || "—", false],
+      ["Negotiated cipher", r.negotiated_cipher || "—", true],
+      ["Forward secrecy", r.forward_secrecy === null ? "—" : String(r.forward_secrecy), false],
+      ["PQC supported", r.pqc_supported === null ? "unknown" : String(r.pqc_supported), false],
+      ["Weak cipher present", String(!!r.weak_cipher_present), false],
+      ["TLS grade", r.tls_grade || "—", false],
+      ["Header grade", r.header_grade ?? "—", false],
+      ["Overall grade", r.grade || "—", false],
+      ["Cert expires", formatDate(r.cert_expires_at), false],
+      ["Server header", r.server_header || "—", false],
+      ["X-Powered-By", r.x_powered_by || "—", false],
+      ["Cleanup action", r.cleanup_action || "keep", false],
+      ["Cleanup confidence", r.cleanup_confidence ?? 0, false],
+      ["Last scanned", formatDate(r.last_scanned), false],
+      ["First seen", formatDate(r.first_seen), false],
     ];
-    for (const [label, value] of rows) {
+
+    for (const [label, value, copyable] of rows) {
       const dt = document.createElement("dt");
       dt.textContent = label;
       const dd = document.createElement("dd");
-      dd.textContent = value;
+
+      if (copyable && value && value !== "—") {
+        dd.innerHTML = `<span>${escapeHtml(value)}</span> `;
+        const copyBtn = document.createElement("button");
+        copyBtn.type = "button";
+        copyBtn.style.cssText = "padding:2px 6px;font-size:11px;margin-left:6px;";
+        copyBtn.textContent = "Copy";
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(value);
+          showToast(`Copied ${label}`, "success");
+        };
+        dd.appendChild(copyBtn);
+      } else {
+        dd.textContent = value;
+      }
       dl.append(dt, dd);
     }
     body.appendChild(dl);
@@ -198,3 +290,10 @@ async function openDetail(recordId, onChanged) {
     body.textContent = `Failed to load record: ${e.message}`;
   }
 }
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s ?? "";
+  return div.innerHTML;
+}
+

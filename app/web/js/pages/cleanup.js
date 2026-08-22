@@ -3,9 +3,10 @@ import { PaginatedTable } from "../components/table.js";
 import { buildFilterBar } from "../components/filters.js";
 import { showToast } from "../components/toast.js";
 import { formatDate } from "../format.js";
-import { getState, onStateChange } from "../state.js";
+import { getState, onStateChange, setZone } from "../state.js";
+import { openRecordDetail } from "./records.js";
 
-export async function render(container) {
+export async function render(container, queryParams = new URLSearchParams()) {
   container.innerHTML = `
     <h1>Cleanup Candidates</h1>
     <div class="filter-bar" style="justify-content:space-between;">
@@ -15,13 +16,47 @@ export async function render(container) {
     <div id="table"></div>
   `;
 
-  let filters = { zone: getState().zone };
+  const initialAction = queryParams.get("action") || "";
+  let filters = { zone: getState().zone, action: initialAction };
 
   const table = new PaginatedTable(document.getElementById("table"), {
     columns: [
-      { key: "name", label: "Name", sortable: true, className: "mono" },
+      {
+        key: "name",
+        label: "Name",
+        sortable: true,
+        className: "mono",
+        render: (r) => {
+          const span = document.createElement("span");
+          span.className = "clickable-link mono";
+          span.textContent = r.name;
+          span.onclick = (e) => {
+            e.stopPropagation();
+            openRecordDetail(r.id, () => table.refresh({ quiet: true }));
+          };
+          return span;
+        },
+      },
       { key: "rtype", label: "Type", sortable: false },
-      { key: "hosted_zone", label: "Zone", sortable: true },
+      {
+        key: "hosted_zone",
+        label: "Zone",
+        sortable: true,
+        render: (r) => {
+          const span = document.createElement("span");
+          span.className = "pill clickable";
+          span.textContent = r.hosted_zone || "—";
+          span.title = `Filter by zone ${r.hosted_zone}`;
+          span.onclick = (e) => {
+            e.stopPropagation();
+            if (r.hosted_zone) {
+              setZone(r.hosted_zone);
+              showToast(`Filtered to zone ${r.hosted_zone}`, "success");
+            }
+          };
+          return span;
+        },
+      },
       { key: "cleanup_action", label: "Action", sortable: true },
       { key: "cleanup_confidence", label: "Confidence", sortable: true },
       {
@@ -57,6 +92,7 @@ export async function render(container) {
     ],
     defaultSort: { by: "cleanup_confidence", dir: "desc" },
     fetchPage: async (page) => apiGet("/cleanup", { ...filters, ...page }),
+    onRowClick: (row) => openRecordDetail(row.id, () => table.refresh({ quiet: true })),
   });
 
   buildFilterBar(
@@ -77,7 +113,8 @@ export async function render(container) {
     (values) => {
       filters = { ...values, ack: values.ack ? "false" : "", zone: getState().zone };
       table.refresh({ preservePage: false });
-    }
+    },
+    { action: initialAction }
   );
 
   document.getElementById("reconcile-btn").addEventListener("click", async () => {
@@ -98,3 +135,4 @@ export async function render(container) {
   await table.refresh();
   return () => unsub();
 }
+
