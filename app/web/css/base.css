@@ -1,3 +1,9 @@
+/* Theme: light values live on bare :root. Dark applies two ways — automatically via OS
+preference (prefers-color-scheme), or explicitly via a `data-theme` attribute the manual
+toggle in the topbar sets on <html> and persists to localStorage (see app.js theme.js). The
+media-query block is guarded with :not([data-theme="light"]) so an explicit light override
+always wins even on a dark-OS system; the attribute block below it always wins outright since
+it's a plain (non-media) selector applied after. */
 :root {
   --bg: #f4f6f8;
   --bg-elevated: #ffffff;
@@ -17,6 +23,9 @@
   --success-bg: #e7f6ec;
   --info: #6d28d9;
   --info-bg: #f1e9fd;
+  --chart-teal: #0d9488;
+  --chart-pink: #db2777;
+  --chart-slate: #64748b;
   --radius: 6px;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -24,7 +33,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0f1420;
     --bg-elevated: #171d2b;
     --bg-inset: #1c2333;
@@ -43,8 +52,36 @@
     --success-bg: #14301e;
     --info: #b794f6;
     --info-bg: #2a1f42;
+    --chart-teal: #2dd4bf;
+    --chart-pink: #f472b6;
+    --chart-slate: #94a3b8;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5);
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1420;
+  --bg-elevated: #171d2b;
+  --bg-inset: #1c2333;
+  --border: #2c3547;
+  --text: #e6eaf0;
+  --text-muted: #9aa5b6;
+  --text-faint: #6b7688;
+  --accent: #5b8def;
+  --accent-hover: #7ba1f2;
+  --accent-bg: #1a2942;
+  --danger: #f0605a;
+  --danger-bg: #3a1a1c;
+  --warning: #e0a34c;
+  --warning-bg: #3a2c14;
+  --success: #4ade80;
+  --success-bg: #14301e;
+  --info: #b794f6;
+  --info-bg: #2a1f42;
+  --chart-teal: #2dd4bf;
+  --chart-pink: #f472b6;
+  --chart-slate: #94a3b8;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 :root {
@@ -195,7 +232,8 @@ h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: 
 #app-shell.sidebar-collapsed #sidebar nav a .nav-label {
   display: none;
 }
-#app-shell.sidebar-collapsed #sidebar nav a:hover::after {
+#app-shell.sidebar-collapsed #sidebar nav a:hover::after,
+#app-shell.sidebar-collapsed #sidebar nav a:focus-visible::after {
   content: attr(data-tooltip);
   position: absolute;
   left: calc(100% + 8px);
@@ -263,6 +301,19 @@ select, input[type="text"], input[type="search"], input[type="number"], input[ty
   font-family: inherit;
 }
 select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+/* Consistent, visible keyboard-focus ring across every interactive element — buttons, links,
+   table rows and chart-legend items acting as click targets. :focus-visible (not :focus)
+   so mouse clicks don't show a ring, only actual keyboard/AT navigation does. */
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
 
 button {
   font-family: inherit;

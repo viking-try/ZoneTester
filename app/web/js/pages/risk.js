@@ -1,15 +1,16 @@
 import { apiGet } from "../api.js";
 import { showToast } from "../components/toast.js";
 import { getState, onStateChange, setZone } from "../state.js";
+import { donutChart, chartLegend } from "../components/charts.js";
 
 const ISSUE_META = {
-  dangling: { label: "Dangling DNS assets / cleanup candidates", route: "#/cleanup" },
-  down: { label: "Down / unreachable scan targets", route: "#/records?state=down" },
-  weak_cipher: { label: "Weak or deprecated cipher suites", route: "#/records?weak_cipher=true" },
-  expired_or_bad_cert: { label: "Expired or invalid certificates", route: "#/records?grade=F" },
-  no_pqc: { label: "No Post-Quantum (PQC) support", route: "#/records?pqc=false" },
-  missing_hsts: { label: "Missing Strict-Transport-Security (HSTS)", route: "#/records?hsts_missing=true" },
-  legacy_tls: { label: "Legacy protocols (TLS 1.0, 1.1, SSLv3)", route: "#/records?protocol=TLSv1" },
+  dangling: { label: "Dangling DNS assets / cleanup candidates", route: "#/cleanup", colorVar: "--danger" },
+  down: { label: "Down / unreachable scan targets", route: "#/records?state=down", colorVar: "--chart-pink" },
+  weak_cipher: { label: "Weak or deprecated cipher suites", route: "#/records?weak_cipher=true", colorVar: "--warning" },
+  expired_or_bad_cert: { label: "Expired or invalid certificates", route: "#/records?grade=F", colorVar: "--accent" },
+  no_pqc: { label: "No Post-Quantum (PQC) support", route: "#/records?pqc=false", colorVar: "--info" },
+  missing_hsts: { label: "Missing Strict-Transport-Security (HSTS)", route: "#/records?hsts_missing=true", colorVar: "--chart-teal" },
+  legacy_tls: { label: "Legacy protocols (TLS 1.0, 1.1, SSLv3)", route: "#/records?protocol=TLSv1", colorVar: "--chart-slate" },
 };
 
 export async function render(container) {
@@ -24,6 +25,7 @@ export async function render(container) {
         </select>
       </div>
     </div>
+    <div class="card" id="risk-chart-card" style="margin-bottom:16px;"></div>
     <div id="risk-table"></div>
   `;
 
@@ -32,10 +34,37 @@ export async function render(container) {
     const zone = getState().zone;
     try {
       const { rows } = await apiGet("/risk", { group_by: groupBy, zone });
+      renderChart(groupBy, rows);
       renderTable(groupBy, rows);
     } catch (e) {
       showToast(`Failed to load risk view: ${e.message}`, "error");
     }
+  }
+
+  function renderChart(groupBy, rows) {
+    const card = document.getElementById("risk-chart-card");
+    card.innerHTML = "";
+    if (groupBy !== "issue") {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
+
+    const h2 = document.createElement("h2");
+    h2.textContent = "Issue breakdown";
+    card.appendChild(h2);
+
+    const data = rows.map((r) => {
+      const meta = ISSUE_META[r.issue] || { label: r.issue, route: "#/records", colorVar: "--chart-slate" };
+      return { label: meta.label, value: r.count, colorVar: meta.colorVar, route: meta.route };
+    });
+    const total = data.reduce((s, d) => s + d.value, 0);
+
+    const row = document.createElement("div");
+    row.className = "chart-row";
+    row.appendChild(donutChart({ data, centerLabel: String(total), centerSub: "open issues" }));
+    row.appendChild(chartLegend(data, { onClick: (d) => (window.location.hash = d.route) }));
+    card.appendChild(row);
   }
 
   function renderTable(groupBy, rows) {
@@ -110,4 +139,3 @@ export async function render(container) {
   await load();
   return () => unsub();
 }
-

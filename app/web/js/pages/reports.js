@@ -4,42 +4,46 @@ import { showToast } from "../components/toast.js";
 import { formatDate } from "../format.js";
 import { getState, onStateChange } from "../state.js";
 
+/* Keyed by the REAL template keys the backend returns from GET /api/reports/templates
+   (app/reporting/render.py:EVENT_TYPE_LABELS plus "full") — a mismatch here would let an
+   operator pick a template in the UI that silently doesn't correspond to anything real. Any
+   key the backend adds later without a curated entry here still renders, just with a plainer
+   auto-generated description (see renderTemplatesTab). */
 const TEMPLATE_DESCRIPTIONS = {
   full: {
-    title: "Full Executive Digest",
     description: "Complete roll-up of all infrastructure changes, state transitions, certificate renewals/expirations, grade regressions, and new dangling assets across all monitored zones.",
     audience: "CISO, Head of Infrastructure, SecOps Leadership",
     cadence: "Weekly or Daily",
   },
-  new_dangling_resource: {
-    title: "Dangling Assets & Cleanup Risk",
+  new_dangling: {
     description: "Targeted alert for DNS records pointing to deprovisioned or unclaimed third-party cloud infrastructure (S3, CloudFront, Azure, GitHub Pages, Heroku). High subdomain takeover risk.",
     audience: "Cloud Security, DevOps, Site Reliability Engineers",
     cadence: "Daily or Immediately",
   },
-  cert_expiring: {
-    title: "Certificate Expiration & Health",
-    description: "Tracks TLS certificates expiring within 30, 14, and 7 days, as well as invalid, expired, or untrusted certificates.",
-    audience: "Infrastructure Engineers, Web Operations",
-    cadence: "Weekly / Daily",
+  newly_down: {
+    description: "Endpoints that were reachable and are no longer — a first signal for outages or infrastructure that quietly disappeared.",
+    audience: "Site Reliability Engineers, Infrastructure On-Call",
+    cadence: "Daily",
   },
-  weak_cipher: {
-    title: "Weak Ciphers & Cryptographic Posture",
-    description: "Highlights endpoints negotiating deprecated ciphers (RC4, 3DES, CBC mode) or legacy TLS versions (1.0, 1.1, SSLv3).",
+  new_weak_cipher: {
+    description: "Highlights endpoints newly negotiating deprecated ciphers (RC4, 3DES, EXPORT, NULL) or legacy TLS versions (1.0, 1.1, SSLv3).",
     audience: "Compliance Officers, Security Architects",
     cadence: "Weekly / Monthly",
   },
+  newly_not_pqc: {
+    description: "Endpoints that lost hybrid post-quantum (ML-KEM / X25519MLKEM768) key-exchange support since the last scan — a regression signal for PQC migration tracking.",
+    audience: "Enterprise Architecture, Cryptographic Modernization Team",
+    cadence: "Monthly / Quarterly",
+  },
   grade_regression: {
-    title: "Security Grade Regressions",
     description: "Identifies endpoints where TLS or HTTP security header posture has degraded since the last scan (e.g. from A to F).",
     audience: "Security Operations, Application Owners",
     cadence: "Daily / Incident-based",
   },
-  pqc_migration: {
-    title: "Post-Quantum Cryptography (PQC) Readiness",
-    description: "Tracks progress towards NIST PQC standards (ML-KEM, X25519MLKEM768 key exchanges) across corporate inventory.",
-    audience: "Enterprise Architecture, Cryptographic Modernization Team",
-    cadence: "Monthly / Quarterly",
+  cert_expiring_30d: {
+    description: "Certificates entering their final 30 days before expiry — the window where renewal needs to be actioned.",
+    audience: "Infrastructure Engineers, Web Operations",
+    cadence: "Weekly / Daily",
   },
 };
 
@@ -297,27 +301,33 @@ export async function render(container) {
   function renderTemplatesTab(wrap) {
     wrap.innerHTML = `
       <p class="muted" style="margin-top:0;margin-bottom:16px;">
-        Standardized report definitions configured in the Zoneguard reporting engine.
+        Standardized report definitions, live from the Zoneguard reporting engine — this list
+        always matches what's selectable above and in schedules.
       </p>
       <div class="template-grid">
-        ${Object.entries(TEMPLATE_DESCRIPTIONS)
-          .map(
-            ([key, item]) => `
+        ${templatesList
+          .map((t) => {
+            const meta = TEMPLATE_DESCRIPTIONS[t.key] || {
+              description: `Digest scoped to "${t.label}" events only.`,
+              audience: "Security Operations",
+              cadence: "As needed",
+            };
+            return `
           <div class="template-card">
             <div>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <h3>${escapeHtml(item.title)}</h3>
-                <span class="badge grade-B mono">${escapeHtml(key)}</span>
+                <h3>${escapeHtml(t.label)}</h3>
+                <span class="badge grade-B mono">${escapeHtml(t.key)}</span>
               </div>
-              <p>${escapeHtml(item.description)}</p>
+              <p>${escapeHtml(meta.description)}</p>
             </div>
             <div style="border-top:1px solid var(--border);padding-top:10px;font-size:12px;" class="muted">
-              <div><strong>Target Audience:</strong> ${escapeHtml(item.audience)}</div>
-              <div style="margin-top:2px;"><strong>Suggested Cadence:</strong> ${escapeHtml(item.cadence)}</div>
+              <div><strong>Target Audience:</strong> ${escapeHtml(meta.audience)}</div>
+              <div style="margin-top:2px;"><strong>Suggested Cadence:</strong> ${escapeHtml(meta.cadence)}</div>
             </div>
           </div>
-        `
-          )
+        `;
+          })
           .join("")}
       </div>
     `;

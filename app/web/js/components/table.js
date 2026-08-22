@@ -104,6 +104,11 @@ export class PaginatedTable {
       resizer.className = "col-resizer";
       resizer.style.cssText =
         "display:inline-block;width:6px;cursor:col-resize;float:right;height:100%;margin-right:-8px;";
+      // Mouse/pointer-only affordance — there's no keyboard equivalent for a drag resize, so
+      // explicitly keep it out of the tab order and hidden from assistive tech rather than
+      // leaving an unlabeled, inert stop for keyboard/screen-reader users.
+      resizer.setAttribute("aria-hidden", "true");
+      resizer.tabIndex = -1;
       resizer.addEventListener("pointerdown", (e) => this._startResize(e, idx));
       th.style.position = "relative";
       th.appendChild(resizer);
@@ -167,7 +172,15 @@ export class PaginatedTable {
       const tr = document.createElement("tr");
       if (this.onRowClick) {
         tr.style.cursor = "pointer";
+        tr.tabIndex = 0;
+        tr.setAttribute("role", "button");
         tr.addEventListener("click", () => this.onRowClick(row));
+        tr.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            this.onRowClick(row);
+          }
+        });
       }
       for (const col of this.columns) {
         const td = document.createElement("td");

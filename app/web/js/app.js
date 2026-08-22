@@ -1,6 +1,7 @@
 import { apiGet, apiPost } from "./api.js";
 import { checkAuth, renderLogin } from "./pages/login.js";
 import { getState, onStateChange, setUser, setZone } from "./state.js";
+import { isEffectivelyDark, toggleTheme } from "./theme.js";
 
 const ROUTES = {
   dashboard: () => import("./pages/dashboard.js"),
@@ -31,6 +32,8 @@ const ICONS = {
   settings: `<svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`,
   users: `<svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>`,
   sidebarToggle: `<svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>`,
+  sun: `<svg viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06z"/></svg>`,
+  moon: `<svg viewBox="0 0 24 24"><path d="M12.3 4.9c.4-.2.6-.6.5-1-.1-.5-.5-.8-1-.7-4.7.7-8.3 4.8-8.3 9.7 0 5.4 4.4 9.8 9.8 9.8 4.9 0 9-3.6 9.7-8.3.1-.5-.2-.9-.6-1-.4-.1-.9 0-1.1.4-1 1.7-2.9 2.8-5 2.8-3.3 0-6-2.7-6-6 0-2.1 1.1-4 2.8-5 .1-.2.2-.4.2-.7z"/></svg>`,
 };
 
 const NAV = [
@@ -65,6 +68,9 @@ export function toggleSidebar(force) {
 
   shell.classList.toggle("sidebar-collapsed", isSidebarCollapsed);
   localStorage.setItem("zg_sidebar_collapsed", isSidebarCollapsed ? "true" : "false");
+
+  const toggleBtn = document.getElementById("sidebar-toggle-btn");
+  toggleBtn?.setAttribute("aria-expanded", String(!isSidebarCollapsed));
 }
 
 async function renderShell() {
@@ -81,11 +87,15 @@ async function renderShell() {
     </aside>
     <div id="main">
       <div id="topbar">
-        <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" type="button" title="Toggle sidebar (Ctrl+B)">
-          ${ICONS.sidebarToggle}
+        <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" type="button" title="Toggle sidebar (Ctrl+B)"
+                aria-label="Toggle sidebar" aria-controls="sidebar" aria-expanded="${!isSidebarCollapsed}">
+          <span aria-hidden="true">${ICONS.sidebarToggle}</span>
         </button>
         <select id="zone-select" class="zone-select"><option value="">All zones</option></select>
         <div class="spacer"></div>
+        <button id="theme-toggle-btn" class="sidebar-toggle-btn" type="button" aria-label="Toggle dark mode">
+          <span aria-hidden="true" id="theme-toggle-icon"></span>
+        </button>
         <span id="user-badge" class="muted"></span>
         <button id="logout-btn" type="button">Sign out</button>
       </div>
@@ -95,6 +105,19 @@ async function renderShell() {
   `;
 
   document.getElementById("sidebar-toggle-btn").addEventListener("click", () => toggleSidebar());
+
+  const themeIcon = document.getElementById("theme-toggle-icon");
+  const themeBtn = document.getElementById("theme-toggle-btn");
+  const syncThemeIcon = () => {
+    const dark = isEffectivelyDark();
+    themeIcon.innerHTML = dark ? ICONS.sun : ICONS.moon;
+    themeBtn.title = dark ? "Switch to light mode" : "Switch to dark mode";
+  };
+  syncThemeIcon();
+  themeBtn.addEventListener("click", () => {
+    toggleTheme();
+    syncThemeIcon();
+  });
 
   const nav = document.getElementById("nav");
   for (const section of NAV) {
@@ -107,8 +130,12 @@ async function renderShell() {
       a.href = `#/${path}`;
       a.dataset.path = path;
       a.setAttribute("data-tooltip", label);
+      // Explicit aria-label rather than relying on visible text: .nav-label is display:none
+      // when the sidebar is collapsed, which would otherwise leave the link with no
+      // accessible name at all for screen-reader users in that state.
+      a.setAttribute("aria-label", label);
       a.innerHTML = `
-        <span class="nav-icon">${iconSvg}</span>
+        <span class="nav-icon" aria-hidden="true">${iconSvg}</span>
         <span class="nav-label">${label}</span>
       `;
       nav.appendChild(a);

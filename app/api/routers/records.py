@@ -47,8 +47,11 @@ def _build_filters(q: dict) -> tuple[list[str], dict]:
         where.append("(name ILIKE %(search)s OR value ILIKE %(search)s)")
         params["search"] = f"%{q['search']}%"
     if q.get("domain_id"):
+        try:
+            params["domain_id"] = int(q["domain_id"])
+        except ValueError as exc:
+            raise HTTPException(400, "domain_id must be an integer") from exc
         where.append("domain_id = %(domain_id)s")
-        params["domain_id"] = int(q["domain_id"])
     if q.get("zone"):
         where.append("hosted_zone = %(zone)s")
         params["zone"] = q["zone"]

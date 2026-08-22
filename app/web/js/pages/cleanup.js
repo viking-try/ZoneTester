@@ -5,16 +5,61 @@ import { showToast } from "../components/toast.js";
 import { formatDate } from "../format.js";
 import { getState, onStateChange, setZone } from "../state.js";
 import { openRecordDetail } from "./records.js";
+import { trendCard, donutChart, chartLegend } from "../components/charts.js";
 
 export async function render(container, queryParams = new URLSearchParams()) {
   container.innerHTML = `
     <h1>Cleanup Candidates</h1>
+    <div class="chart-row" id="cleanup-summary" style="margin-bottom:16px;"></div>
     <div class="filter-bar" style="justify-content:space-between;">
       <div id="filter-bar" class="filter-bar"></div>
       <button id="reconcile-btn">Re-run reconciliation</button>
     </div>
     <div id="table"></div>
   `;
+
+  loadSummary();
+
+  async function loadSummary() {
+    const zone = getState().zone;
+    const summaryEl = document.getElementById("cleanup-summary");
+    try {
+      const [trends, candidates] = await Promise.all([
+        apiGet("/dashboard/trends", { zone, days: 30 }),
+        apiGet("/cleanup", { zone, limit: 500, sort_by: "cleanup_confidence", sort_dir: "desc" }),
+      ]);
+      summaryEl.innerHTML = "";
+
+      const points = trends.rows.map((r) => r.dangling_count ?? 0);
+      const latest = points.length ? points[points.length - 1] : 0;
+      const trendWrap = document.createElement("div");
+      trendWrap.style.minWidth = "160px";
+      trendWrap.appendChild(trendCard({ label: "Dangling candidates (30d)", value: latest, points, colorVar: "--warning" }));
+      summaryEl.appendChild(trendWrap);
+
+      const byAction = { delete: 0, investigate: 0 };
+      for (const r of candidates.rows) byAction[r.cleanup_action] = (byAction[r.cleanup_action] || 0) + 1;
+      const data = [
+        { label: "Delete (high confidence)", value: byAction.delete, colorVar: "--danger", action: "delete" },
+        { label: "Investigate", value: byAction.investigate, colorVar: "--warning", action: "investigate" },
+      ];
+      const donutWrap = document.createElement("div");
+      donutWrap.appendChild(donutChart({ data, centerLabel: String(candidates.total), centerSub: "candidates" }));
+      const legendWrap = document.createElement("div");
+      legendWrap.appendChild(
+        chartLegend(data, {
+          onClick: (d) => {
+            filters = { ...filters, action: d.action };
+            document.getElementById("flt-action").value = d.action;
+            table.refresh({ preservePage: false });
+          },
+        })
+      );
+      summaryEl.append(donutWrap, legendWrap);
+    } catch {
+      summaryEl.innerHTML = "";
+    }
+  }
 
   const initialAction = queryParams.get("action") || "";
   let filters = { zone: getState().zone, action: initialAction };
