@@ -58,7 +58,16 @@ const NAV = [
   { section: "Admin", items: [["audit", "Audit Log", ICONS.audit], ["settings", "Settings", ICONS.settings], ["users", "Users", ICONS.users]] },
 ];
 
-let isSidebarCollapsed = localStorage.getItem("zg_sidebar_collapsed") === "true";
+// Below this width the sidebar is a fixed-position overlay drawer, not a flex column
+// competing with #main for space (see the matching breakpoint in base.css) — it defaults
+// closed on every load there regardless of the desktop collapsed/expanded preference, and
+// mobile toggles don't overwrite that stored desktop preference.
+const MOBILE_BREAKPOINT_QUERY = "(max-width: 860px)";
+function isMobileViewport() {
+  return window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
+}
+
+let isSidebarCollapsed = isMobileViewport() ? true : localStorage.getItem("zg_sidebar_collapsed") === "true";
 
 export function toggleSidebar(force) {
   const shell = document.getElementById("app-shell");
@@ -67,7 +76,9 @@ export function toggleSidebar(force) {
   else isSidebarCollapsed = !isSidebarCollapsed;
 
   shell.classList.toggle("sidebar-collapsed", isSidebarCollapsed);
-  localStorage.setItem("zg_sidebar_collapsed", isSidebarCollapsed ? "true" : "false");
+  if (!isMobileViewport()) {
+    localStorage.setItem("zg_sidebar_collapsed", isSidebarCollapsed ? "true" : "false");
+  }
 
   const toggleBtn = document.getElementById("sidebar-toggle-btn");
   toggleBtn?.setAttribute("aria-expanded", String(!isSidebarCollapsed));
@@ -85,6 +96,7 @@ async function renderShell() {
       </div>
       <nav id="nav"></nav>
     </aside>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
     <div id="main">
       <div id="topbar">
         <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" type="button" title="Toggle sidebar (Ctrl+B)"
@@ -105,6 +117,7 @@ async function renderShell() {
   `;
 
   document.getElementById("sidebar-toggle-btn").addEventListener("click", () => toggleSidebar());
+  document.getElementById("sidebar-backdrop").addEventListener("click", () => toggleSidebar(true));
 
   const themeIcon = document.getElementById("theme-toggle-icon");
   const themeBtn = document.getElementById("theme-toggle-btn");
@@ -184,6 +197,10 @@ async function route() {
 
   document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.dataset.path === path));
 
+  // Tapping a destination on the mobile overlay drawer should show that destination, not
+  // leave the drawer covering it — close it the same way the backdrop click does.
+  if (isMobileViewport() && !isSidebarCollapsed) toggleSidebar(true);
+
   if (typeof currentPageCleanup === "function") {
     try {
       currentPageCleanup();
@@ -212,6 +229,17 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     toggleSidebar();
   }
+  if (e.key === "Escape" && isMobileViewport() && !isSidebarCollapsed) {
+    toggleSidebar(true);
+  }
+});
+
+// Crossing the mobile/desktop breakpoint (resize, rotation, devtools panel) re-syncs the
+// sidebar to that mode's own preference instead of leaving a mobile-opened drawer stuck
+// open (with its backdrop) once there's no longer a backdrop breakpoint styling it as one.
+const mobileMql = window.matchMedia(MOBILE_BREAKPOINT_QUERY);
+mobileMql.addEventListener("change", (e) => {
+  toggleSidebar(e.matches ? true : localStorage.getItem("zg_sidebar_collapsed") === "true");
 });
 
 window.addEventListener("hashchange", route);

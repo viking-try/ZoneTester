@@ -91,6 +91,7 @@ it's a plain (non-media) selector applied after. */
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
+html { overflow-x: hidden; }
 body {
   margin: 0;
   background: var(--bg);
@@ -98,6 +99,7 @@ body {
   font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
+  overflow-x: hidden;
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -265,6 +267,64 @@ h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: 
   z-index: 5;
 }
 #topbar .spacer { flex: 1; }
+
+/* Mobile / narrow-viewport layout: the sidebar stops being a flex sibling that competes with
+   #main for horizontal space (that competition — a fixed-width column plus content that can't
+   shrink below its grid minmax — is what forces the whole page into horizontal scroll on a
+   narrow screen) and instead becomes a fixed-position overlay drawer, closed by default,
+   that slides over the content on top of a backdrop. #main always gets the full viewport
+   width at this breakpoint since the sidebar is out of normal flow. */
+.sidebar-backdrop { display: none; }
+
+@media (max-width: 860px) {
+  #sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 200;
+    width: min(var(--sidebar-width), 78vw);
+    transform: translateX(-100%);
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.25);
+    transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  #app-shell:not(.sidebar-collapsed) #sidebar {
+    transform: translateX(0);
+  }
+  /* On mobile the toggle always shows/hides the FULL sidebar (never the icon-only desktop
+     "collapsed" look) — a half-open icon strip is not a meaningful state for an overlay. */
+  #app-shell.sidebar-collapsed #sidebar {
+    width: min(var(--sidebar-width), 78vw);
+    padding: 14px 8px;
+  }
+  #app-shell.sidebar-collapsed #sidebar .brand-full { display: flex; }
+  #app-shell.sidebar-collapsed #sidebar .brand-mini { display: none; }
+  #app-shell.sidebar-collapsed #sidebar .nav-section { opacity: 1; height: auto; margin: 14px 0 4px; padding: 0 10px; border-top: none; font-size: 10.5px; }
+  #app-shell.sidebar-collapsed #sidebar nav a { padding: 7px 10px; justify-content: flex-start; }
+  #app-shell.sidebar-collapsed #sidebar nav a .nav-label { display: inline; }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 20, 32, 0.5);
+    z-index: 150;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  #app-shell:not(.sidebar-collapsed) .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #topbar { padding: 8px 10px; gap: 6px; }
+  #topbar .zone-select { min-width: 0; flex: 1; max-width: 120px; font-size: 12px; padding: 6px 6px; }
+  #user-badge { display: none; }
+  #logout-btn { padding: 6px 8px; font-size: 12px; }
+  #content { padding: 14px; }
+  #content h1 { font-size: 17px; }
+}
 
 .sidebar-toggle-btn {
   display: inline-flex;
